@@ -16,9 +16,10 @@ const os   = require("os");
 const CONFIG_FILE = path.join(os.homedir(), ".claude", "statusline.config.json");
 
 const COMPONENTS = [
-  { key: "model",      label: "模型名稱",        example: "claude-sonnet-4-6" },
-  { key: "contextBar", label: "Context 進度條",   example: "██░░░░ 22% (200k)" },
-  { key: "tokens",     label: "Token 統計",       example: "↑15k ↓5k" },
+  { key: "model",       label: "模型名稱",          example: "claude-sonnet-4-6" },
+  { key: "contextBar",  label: "Context 進度條",   example: "██░░░░ 22%" },
+  { key: "contextSize", label: "Context 視窗大小", example: "(200k)" },
+  { key: "tokens",      label: "Token 統計",       example: "↑15k ↓5k" },
   { key: "cost",       label: "累計費用",         example: "$0.03" },
   { key: "rateLimit",  label: "Rate limit 警示",  example: "RL-5h:85%" },
   { key: "git",        label: "Git 分支",         example: "⎇ main*" },
@@ -157,7 +158,7 @@ if (process.argv.includes("--configure")) {
         const ratio    = ctxPct / 100;
         const bar      = progressBar(ratio);
         const pctColor = ratio > 0.85 ? RED : ratio > 0.6 ? YELLOW : GREEN;
-        const sizeStr  = ctxSize ? ` ${GRAY}(${fmtTokens(ctxSize)})${R}` : "";
+        const sizeStr  = (show.contextSize && ctxSize) ? ` ${GRAY}(${fmtTokens(ctxSize)})${R}` : "";
         parts.push(`${bar} ${pctColor}${Math.round(ctxPct)}%${R}${sizeStr}`);
       }
     }
@@ -181,15 +182,14 @@ if (process.argv.includes("--configure")) {
       if (costStr) parts.push(costStr);
     }
 
-    // 6. Rate limit 警示（超過 80% 才顯示）
+    // 6. Rate limit 使用量（有數據即顯示）
     if (show.rateLimit) {
       const rl = data.rate_limits || {};
       for (const [key, label] of [["five_hour", "5h"], ["seven_day", "7d"]]) {
-        const pct = (rl[key] || {}).used_percentage || 0;
-        if (pct >= 80) {
-          const color = pct >= 95 ? RED : YELLOW;
-          parts.push(color + `RL-${label}:${Math.round(pct)}%` + R);
-        }
+        const pct = (rl[key] || {}).used_percentage;
+        if (pct == null) continue;
+        const color = pct >= 85 ? RED : pct >= 60 ? YELLOW : GREEN;
+        parts.push(GRAY + `${label}:` + R + color + `${Math.round(pct)}%` + R);
       }
     }
 

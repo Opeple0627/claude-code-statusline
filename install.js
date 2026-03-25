@@ -74,9 +74,10 @@ function updateSettings(nodePath) {
 
 // ── 互動式設定 ────────────────────────────────────────────
 const COMPONENTS = [
-  { key: "model",      label: "模型名稱",             example: "claude-sonnet-4-6" },
-  { key: "contextBar", label: "Context 進度條",        example: "██░░░░ 22% (200k)" },
-  { key: "tokens",     label: "Token 統計",            example: "↑15k ↓5k" },
+  { key: "model",       label: "模型名稱",          example: "claude-sonnet-4-6" },
+  { key: "contextBar",  label: "Context 進度條",   example: "██░░░░ 22%" },
+  { key: "contextSize", label: "Context 視窗大小", example: "(200k)" },
+  { key: "tokens",      label: "Token 統計",       example: "↑15k ↓5k" },
   { key: "cost",       label: "累計費用",              example: "$0.03" },
   { key: "rateLimit",  label: "Rate limit 警示",       example: "RL-5h:85%" },
   { key: "git",        label: "Git 分支",              example: "⎇ main*" },
