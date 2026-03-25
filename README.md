@@ -12,13 +12,26 @@
 |------|------|
 | `◆` | Anthropic 品牌標誌（紫色）|
 | 模型名稱 | 目前使用的 Claude 模型 |
-| `██░░░░ 22%` | Context window 使用量（綠→黃→紅）|
+| `██░░░░ 22% (200k)` | Context window 使用量（綠→黃→紅），`(200k)` 可獨立隱藏 |
 | `↑15k ↓5k` | 本次對話 input/output token 數 |
 | `$0.03` | 累計費用（超過 $1 變黃，$10 變紅）|
-| `RL-5h:85%` | Rate limit 警示（超過 80% 才顯示）|
+| `5h:45% 重置23m` | 5 小時 rate limit 使用量與重置倒數（Pro/Max）|
+| `7d:12% 重置2d3h` | 7 天 rate limit 使用量與重置倒數（Pro/Max）|
 | `⎇ main*` | Git 分支（有未提交變更顯示 `*`）|
 | `[agent-name]` | 作用中的 Agent 名稱 |
 | `wt:name` | Worktree 名稱 |
+
+每個項目皆可透過互動式設定獨立開關。
+
+## 自訂顯示項目
+
+安裝時會自動詢問要顯示哪些項目。之後可隨時重新設定：
+
+```bash
+node ~/.claude/statusline.js --configure
+```
+
+設定儲存於 `~/.claude/statusline.config.json`，重啟 Claude Code 後生效。
 
 ## 需求
 
