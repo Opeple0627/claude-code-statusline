@@ -1,34 +1,50 @@
 #!/usr/bin/env node
 /**
- * Claude Code Statusline - 安裝腳本
+ * Claude Code Statusline — Installer
  *
- * 使用方式（一行安裝）：
+ * One-line install:
  *   curl -fsSL https://raw.githubusercontent.com/USER/REPO/main/install.js | node
  *
- * 或直接執行：
+ * Or run directly:
  *   node install.js
  */
 
-const fs      = require("fs");
-const path    = require("path");
-const os      = require("os");
-const https   = require("https");
+const fs       = require("fs");
+const path     = require("path");
+const os       = require("os");
+const https    = require("https");
 const readline = require("readline");
 
-const REPO_RAW   = "https://raw.githubusercontent.com/Opeple0627/claude-code-statusline/main";
-const CLAUDE_DIR = path.join(os.homedir(), ".claude");
-const DEST_FILE  = path.join(CLAUDE_DIR, "statusline.js");
-const SETTINGS   = path.join(CLAUDE_DIR, "settings.json");
+const REPO_RAW    = "https://raw.githubusercontent.com/Opeple0627/claude-code-statusline/main";
+const CLAUDE_DIR  = path.join(os.homedir(), ".claude");
+const DEST_FILE   = path.join(CLAUDE_DIR, "statusline.js");
+const SETTINGS    = path.join(CLAUDE_DIR, "settings.json");
 const CONFIG_FILE = path.join(CLAUDE_DIR, "statusline.config.json");
 
-// ── 顏色輸出 ──────────────────────────────────────────────
+// ── ANSI helpers ──────────────────────────────────────────
 const green  = s => `\x1b[32m${s}\x1b[0m`;
 const yellow = s => `\x1b[33m${s}\x1b[0m`;
 const red    = s => `\x1b[31m${s}\x1b[0m`;
 const bold   = s => `\x1b[1m${s}\x1b[0m`;
 const gray   = s => `\x1b[90m${s}\x1b[0m`;
 
-// ── 工具函式 ──────────────────────────────────────────────
+// ── Display items (must stay in sync with statusline.js) ──
+const COMPONENTS = [
+  { key: "model",            label: "Model name",            example: "claude-sonnet-4-6" },
+  { key: "contextBar",       label: "Context bar",           example: "██░░░░ 22%" },
+  { key: "contextSize",      label: "Context window size",   example: "(200k)" },
+  { key: "tokens",           label: "Token stats",           example: "↑15k ↓5k" },
+  { key: "cost",             label: "Cost",                  example: "$0.03" },
+  { key: "rateLimit5h",      label: "Rate limit 5h usage",   example: "5h:45%" },
+  { key: "rateLimitReset5h", label: "Rate limit 5h reset",   example: "rst23m" },
+  { key: "rateLimit7d",      label: "Rate limit 7d usage",   example: "7d:12%" },
+  { key: "rateLimitReset7d", label: "Rate limit 7d reset",   example: "rst2d3h" },
+  { key: "git",              label: "Git branch",            example: "⎇ main*" },
+  { key: "agent",            label: "Agent name",            example: "[code-reviewer]" },
+  { key: "worktree",         label: "Worktree name",         example: "wt:feature-x" },
+];
+
+// ── Utility: HTTP fetch with redirect support ─────────────
 function fetch(url) {
   return new Promise((resolve, reject) => {
     https.get(url, res => {
@@ -42,144 +58,111 @@ function fetch(url) {
   });
 }
 
-function findNodePath() {
-  return process.execPath;
-}
-
-// ── settings.json 更新 ────────────────────────────────────
+// ── Update ~/.claude/settings.json ────────────────────────
 function updateSettings(nodePath) {
   let settings = {};
-
   if (fs.existsSync(SETTINGS)) {
-    try {
-      settings = JSON.parse(fs.readFileSync(SETTINGS, "utf8"));
-    } catch {
-      console.error(red("✗ 無法解析 settings.json，請手動更新"));
+    try { settings = JSON.parse(fs.readFileSync(SETTINGS, "utf8")); }
+    catch {
+      console.error(red("✗ Cannot parse settings.json — please update manually"));
       return false;
     }
   }
 
-  const nodePathFwd = nodePath.replace(/\\/g, "/");
-  const destFwd     = DEST_FILE.replace(/\\/g, "/");
-  const nodeCmd     = nodePathFwd.includes(" ") ? `"${nodePathFwd}"` : nodePathFwd;
-
+  const nodeCmd = nodePath.replace(/\\/g, "/");
+  const destFwd = DEST_FILE.replace(/\\/g, "/");
   settings.statusLine = {
     type: "command",
-    command: `${nodeCmd} ${destFwd}`
+    command: `${nodeCmd.includes(" ") ? `"${nodeCmd}"` : nodeCmd} ${destFwd}`,
   };
 
   fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2), "utf8");
   return true;
 }
 
-// ── 互動式設定 ────────────────────────────────────────────
-const COMPONENTS = [
-  { key: "model",       label: "模型名稱",          example: "claude-sonnet-4-6" },
-  { key: "contextBar",  label: "Context 進度條",   example: "██░░░░ 22%" },
-  { key: "contextSize", label: "Context 視窗大小", example: "(200k)" },
-  { key: "tokens",      label: "Token 統計",       example: "↑15k ↓5k" },
-  { key: "cost",       label: "累計費用",              example: "$0.03" },
-  { key: "rateLimit5h",      label: "Rate limit 5h 使用量",  example: "5h:45%" },
-  { key: "rateLimitReset5h", label: "Rate limit 5h 重置時間", example: "重置23m" },
-  { key: "rateLimit7d",      label: "Rate limit 7d 使用量",  example: "7d:12%" },
-  { key: "rateLimitReset7d", label: "Rate limit 7d 重置時間", example: "重置2d3h" },
-  { key: "git",        label: "Git 分支",              example: "⎇ main*" },
-  { key: "agent",      label: "Agent 名稱",            example: "[code-reviewer]" },
-  { key: "worktree",   label: "Worktree 名稱",         example: "wt:feature-x" },
-];
-
+// ── Interactive configure ─────────────────────────────────
 async function interactiveConfigure() {
-  // 若非 TTY（例如 curl | node），無法互動，略過並使用預設值
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    return null;
-  }
+  // Skip if not running in an interactive terminal (e.g. curl | node)
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return null;
 
-  console.log(bold("\n─── 自訂顯示項目 ───────────────────────────────"));
-  console.log(gray("  直接按 Enter 保留預設（Y），輸入 n 關閉\n"));
+  const rl  = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = q => new Promise(r => rl.question(q, r));
 
-  const rl = readline.createInterface({
-    input:  process.stdin,
-    output: process.stdout,
-  });
-
-  const ask = q => new Promise(resolve => rl.question(q, resolve));
+  console.log(bold("\n─── Customize display items ─────────────────────────"));
+  console.log(gray("  Press Enter to keep default (Y), type n to disable\n"));
 
   const show = {};
-
   for (const comp of COMPONENTS) {
-    const ans = await ask(`  ${comp.label.padEnd(18)} ${gray(comp.example.padEnd(20))}  [Y/n] `);
+    const ans = await ask(`  ${comp.label.padEnd(26)} ${gray(comp.example.padEnd(22))}  [Y/n] `);
     show[comp.key] = ans.trim().toLowerCase() !== "n";
   }
-
   rl.close();
   return show;
 }
 
-// ── 主流程 ────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────
 async function main() {
-  console.log(bold("\n◆ Claude Code Statusline 安裝程式\n"));
+  console.log(bold("\n◆ Claude Code Statusline Installer\n"));
 
-  // 1. 確認 ~/.claude 存在
+  // 1. Verify ~/.claude exists
   if (!fs.existsSync(CLAUDE_DIR)) {
-    console.error(red(`✗ 找不到 ${CLAUDE_DIR}，請先安裝 Claude Code`));
+    console.error(red(`✗ ${CLAUDE_DIR} not found — please install Claude Code first`));
     process.exit(1);
   }
 
-  // 2. 下載或複製 statusline.js
+  // 2. Copy or download statusline.js
   const localScript = path.join(__dirname, "statusline.js");
-
   if (fs.existsSync(localScript)) {
     fs.copyFileSync(localScript, DEST_FILE);
-    console.log(green(`✓ 已複製 statusline.js → ${DEST_FILE}`));
+    console.log(green(`✓ Copied statusline.js → ${DEST_FILE}`));
   } else {
-    console.log(`  下載 statusline.js ...`);
+    console.log("  Downloading statusline.js ...");
     try {
       const content = await fetch(`${REPO_RAW}/statusline.js`);
       fs.writeFileSync(DEST_FILE, content, "utf8");
-      console.log(green(`✓ 已下載 statusline.js → ${DEST_FILE}`));
+      console.log(green(`✓ Downloaded statusline.js → ${DEST_FILE}`));
     } catch (e) {
-      console.error(red(`✗ 下載失敗：${e.message}`));
+      console.error(red(`✗ Download failed: ${e.message}`));
       process.exit(1);
     }
   }
 
-  // 3. 偵測 Node.js 路徑
-  const nodePath = findNodePath();
-  console.log(green(`✓ 偵測到 Node.js：${nodePath}`));
+  // 3. Detect Node.js path
+  const nodePath = process.execPath;
+  console.log(green(`✓ Detected Node.js: ${nodePath}`));
 
-  // 4. 更新 settings.json
+  // 4. Update settings.json
   if (updateSettings(nodePath)) {
-    console.log(green(`✓ 已更新 ${SETTINGS}`));
+    console.log(green(`✓ Updated ${SETTINGS}`));
   } else {
     process.exit(1);
   }
 
-  // 5. 互動式設定顯示項目
+  // 5. Interactive configure
   const show = await interactiveConfigure();
 
   if (show) {
-    // 使用者完成互動設定
     fs.writeFileSync(CONFIG_FILE, JSON.stringify({ show }, null, 2), "utf8");
-    console.log(green(`\n✓ 已儲存顯示設定 → ${CONFIG_FILE}`));
+    console.log(green(`\n✓ Display settings saved → ${CONFIG_FILE}`));
   } else {
-    // 非 TTY（curl | node）或無輸入，使用預設（全部顯示）
+    // Non-interactive: write defaults (all enabled)
     if (!fs.existsSync(CONFIG_FILE)) {
       const defaultShow = Object.fromEntries(COMPONENTS.map(c => [c.key, true]));
       fs.writeFileSync(CONFIG_FILE, JSON.stringify({ show: defaultShow }, null, 2), "utf8");
     }
-    console.log(gray(`  （非互動模式，使用預設設定）`));
-    console.log(gray(`  之後可執行以下指令重新設定：`));
+    console.log(gray("  (non-interactive mode, using defaults)"));
+    console.log(gray("  To configure later, run:"));
     console.log(yellow(`  node ${DEST_FILE} --configure`));
   }
 
-  // 6. 完成
-  console.log(bold(green("\n✓ 安裝完成！重啟 Claude Code 即可看到狀態列。\n")));
-  console.log(`  腳本位置：${yellow(DEST_FILE)}`);
-  console.log(`  設定位置：${yellow(SETTINGS)}`);
-  console.log(`  顯示設定：${yellow(CONFIG_FILE)}\n`);
+  // 6. Done
+  console.log(bold(green("\n✓ Installation complete! Restart Claude Code to see the status line.\n")));
+  console.log(`  Script:   ${yellow(DEST_FILE)}`);
+  console.log(`  Settings: ${yellow(SETTINGS)}`);
+  console.log(`  Config:   ${yellow(CONFIG_FILE)}\n`);
 }
 
 main().catch(e => {
-  console.error(red(`✗ 安裝失敗：${e.message}`));
+  console.error(red(`✗ Installation failed: ${e.message}`));
   process.exit(1);
 });

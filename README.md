@@ -1,81 +1,83 @@
 # Claude Code Statusline
 
-將 Claude Code 狀態列變成即時資訊儀表板。
+[繁體中文](./README.zh-TW.md)
 
-純 Node.js 實作，不需要額外安裝任何套件 — 因為 Claude Code 本身就需要 Node.js。
+Turn your Claude Code status bar into a real-time information dashboard.
 
-![示意](https://i.imgur.com/placeholder.png)
+Pure Node.js — no extra packages needed, since Claude Code already ships with Node.js.
 
-## 顯示內容
+![preview](https://i.imgur.com/placeholder.png)
 
-| 項目 | 說明 |
-|------|------|
-| `◆` | Anthropic 品牌標誌（紫色）|
-| 模型名稱 | 目前使用的 Claude 模型 |
-| `██░░░░ 22% (200k)` | Context window 使用量（綠→黃→紅），`(200k)` 可獨立隱藏 |
-| `↑15k ↓5k` | 本次對話 input/output token 數 |
-| `$0.03` | 累計費用（超過 $1 變黃，$10 變紅）|
-| `5h:45% 重置23m` | 5 小時 rate limit 使用量與重置倒數（Pro/Max）|
-| `7d:12% 重置2d3h` | 7 天 rate limit 使用量與重置倒數（Pro/Max）|
-| `⎇ main*` | Git 分支（有未提交變更顯示 `*`）|
-| `[agent-name]` | 作用中的 Agent 名稱 |
-| `wt:name` | Worktree 名稱 |
+## Display Items
 
-每個項目皆可透過互動式設定獨立開關。
+| Item | Description |
+|------|-------------|
+| `◆` | Anthropic brand logo (purple) |
+| Model name | Current Claude model in use |
+| `██░░░░ 22% (200k)` | Context window usage (green→yellow→red); `(200k)` can be hidden independently |
+| `↑15k ↓5k` | Session input / output token count |
+| `$0.03` | Cumulative cost (yellow ≥ $1, red ≥ $10) |
+| `5h:45% rst23m` | 5-hour rate limit usage + reset countdown (Pro/Max) |
+| `7d:12% rst2d3h` | 7-day rate limit usage + reset countdown (Pro/Max) |
+| `⎇ main*` | Git branch (`*` = uncommitted changes) |
+| `[agent-name]` | Active agent name |
+| `wt:name` | Worktree name |
 
-## 自訂顯示項目
+Every item can be toggled independently via `--configure`.
 
-安裝時會自動詢問要顯示哪些項目。之後可隨時重新設定：
+## Requirements
+
+- [Claude Code](https://claude.ai/code) installed
+- Node.js (already bundled with Claude Code)
+
+## Install
+
+### One-line install (recommended)
+
+**macOS / Linux / Git Bash:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Opeple0627/claude-code-statusline/main/install.js | node
+```
+
+**Windows PowerShell:**
+```powershell
+irm https://raw.githubusercontent.com/Opeple0627/claude-code-statusline/main/install.js -OutFile "$env:TEMP\cc-install.js"; node "$env:TEMP\cc-install.js"
+```
+
+### Manual install
+
+```bash
+git clone https://github.com/Opeple0627/claude-code-statusline.git
+cd claude-code-statusline
+node install.js
+```
+
+Restart Claude Code after installation.
+
+## Customize
+
+The installer asks which items to display. To reconfigure at any time:
 
 ```bash
 node ~/.claude/statusline.js --configure
 ```
 
-設定儲存於 `~/.claude/statusline.config.json`，重啟 Claude Code 後生效。
+Settings are saved to `~/.claude/statusline.config.json` and take effect after restarting Claude Code.
 
-## 需求
+## Uninstall
 
-- [Claude Code](https://claude.ai/code) 已安裝
-- Node.js（Claude Code 本身的相依套件，通常已存在）
+Remove the `statusLine` block from `~/.claude/settings.json` and restart Claude Code.
 
-## 安裝
+## Known Issues
 
-### 一行安裝（推薦）
+### Statusline does not refresh immediately after `/compact`
 
-**macOS / Linux / Git Bash：**
-```bash
-curl -fsSL https://raw.githubusercontent.com/Opeple0627/claude-code-statusline/main/install.js | node
-```
+After running `/compact`, the statusline still shows pre-compaction token usage.
 
-**Windows PowerShell：**
-```powershell
-irm https://raw.githubusercontent.com/Opeple0627/claude-code-statusline/main/install.js -OutFile "$env:TEMP\cc-install.js"; node "$env:TEMP\cc-install.js"
-```
+**Reason:** The statusline script is invoked by Claude Code and receives data via stdin. `/compact` is a client-side command that does not trigger a statusline refresh.
 
-### 手動安裝
+**Workaround:** Send your next message — the statusline will update automatically.
 
-```bash
-git clone https://github.com/Opeple0627/claude-code-statusline.git
-cd REPO
-node install.js
-```
-
-安裝完成後**重啟 Claude Code** 即可看到狀態列。
-
-## 已知問題
-
-### `/compact` 後 statusline 不立即更新
-
-執行 `/compact` 壓縮對話後，statusline 仍會顯示壓縮前的 token 使用量。
-
-**原因：** statusline 腳本由 Claude Code 主動呼叫並透過 stdin 傳入資料。`/compact` 是客戶端指令，不會觸發 Claude Code 重新呼叫 statusline，因此畫面不會即時刷新。
-
-**解法：** 送出下一條訊息後，statusline 會自動更新為正確數值。
-
-## 移除
-
-從 `~/.claude/settings.json` 刪除 `statusLine` 區塊，再重啟 Claude Code。
-
-## 授權
+## License
 
 MIT

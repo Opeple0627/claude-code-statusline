@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * Claude Code Statusline
- * 跨平台（Windows / macOS / Linux），任何裝了 Claude Code 的電腦都能執行
- * 因為 Claude Code 本身需要 Node.js，所以不需要額外安裝任何東西
+ * Cross-platform (Windows / macOS / Linux) — requires only Node.js,
+ * which ships with Claude Code, so no extra dependencies needed.
  *
- * 重新設定顯示項目：
+ * Reconfigure display items:
  *   node ~/.claude/statusline.js --configure
  */
 
@@ -12,22 +12,22 @@ const path = require("path");
 const fs   = require("fs");
 const os   = require("os");
 
-// ── 設定檔 ────────────────────────────────────────────────
+// ── Config file ────────────────────────────────────────────
 const CONFIG_FILE = path.join(os.homedir(), ".claude", "statusline.config.json");
 
 const COMPONENTS = [
-  { key: "model",       label: "模型名稱",          example: "claude-sonnet-4-6" },
-  { key: "contextBar",  label: "Context 進度條",   example: "██░░░░ 22%" },
-  { key: "contextSize", label: "Context 視窗大小", example: "(200k)" },
-  { key: "tokens",      label: "Token 統計",       example: "↑15k ↓5k" },
-  { key: "cost",       label: "累計費用",         example: "$0.03" },
-  { key: "rateLimit5h",      label: "Rate limit 5h 使用量",  example: "5h:45%" },
-  { key: "rateLimitReset5h", label: "Rate limit 5h 重置時間", example: "重置23m" },
-  { key: "rateLimit7d",      label: "Rate limit 7d 使用量",  example: "7d:12%" },
-  { key: "rateLimitReset7d", label: "Rate limit 7d 重置時間", example: "重置2d3h" },
-  { key: "git",        label: "Git 分支",         example: "⎇ main*" },
-  { key: "agent",      label: "Agent 名稱",       example: "[code-reviewer]" },
-  { key: "worktree",   label: "Worktree 名稱",    example: "wt:feature-x" },
+  { key: "model",            label: "Model name",            example: "claude-sonnet-4-6" },
+  { key: "contextBar",       label: "Context bar",           example: "██░░░░ 22%" },
+  { key: "contextSize",      label: "Context window size",   example: "(200k)" },
+  { key: "tokens",           label: "Token stats",           example: "↑15k ↓5k" },
+  { key: "cost",             label: "Cost",                  example: "$0.03" },
+  { key: "rateLimit5h",      label: "Rate limit 5h usage",   example: "5h:45%" },
+  { key: "rateLimitReset5h", label: "Rate limit 5h reset",   example: "rst23m" },
+  { key: "rateLimit7d",      label: "Rate limit 7d usage",   example: "7d:12%" },
+  { key: "rateLimitReset7d", label: "Rate limit 7d reset",   example: "rst2d3h" },
+  { key: "git",              label: "Git branch",            example: "⎇ main*" },
+  { key: "agent",            label: "Agent name",            example: "[code-reviewer]" },
+  { key: "worktree",         label: "Worktree name",         example: "wt:feature-x" },
 ];
 
 function loadConfig() {
@@ -37,43 +37,42 @@ function loadConfig() {
       const parsed = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
       return Object.assign({}, defaults, parsed.show || {});
     }
-  } catch { /* 讀取失敗則使用預設 */ }
+  } catch { /* fall through to defaults */ }
   return defaults;
 }
 
-// ── --configure 模式 ──────────────────────────────────────
+// ── --configure mode ───────────────────────────────────────
 if (process.argv.includes("--configure")) {
   const readline = require("readline");
   const existing = loadConfig();
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl  = readline.createInterface({ input: process.stdin, output: process.stdout });
   const ask = q => new Promise(r => rl.question(q, r));
 
   (async () => {
-    console.log("\x1b[1m\n◆ Claude Code Statusline — 顯示項目設定\x1b[0m");
-    console.log("\x1b[90m  直接按 Enter 保留目前設定，輸入 y/n 變更\n\x1b[0m");
+    console.log("\x1b[1m\n◆ Claude Code Statusline — Display Settings\x1b[0m");
+    console.log("\x1b[90m  Press Enter to keep current setting, type y/n to change\n\x1b[0m");
 
     const show = {};
     for (const comp of COMPONENTS) {
       const cur  = existing[comp.key] !== false;
       const hint = cur ? "Y/n" : "y/N";
       const ans  = (await ask(
-        `  ${comp.label.padEnd(18)} \x1b[90m${comp.example.padEnd(22)}\x1b[0m [${hint}] `
+        `  ${comp.label.padEnd(26)} \x1b[90m${comp.example.padEnd(22)}\x1b[0m [${hint}] `
       )).trim().toLowerCase();
-
       show[comp.key] = ans === "" ? cur : ans === "y";
     }
     rl.close();
 
     fs.writeFileSync(CONFIG_FILE, JSON.stringify({ show }, null, 2), "utf8");
-    console.log(`\n\x1b[32m✓ 已儲存 → ${CONFIG_FILE}\x1b[0m`);
-    console.log("\x1b[90m  重啟 Claude Code 後生效\x1b[0m\n");
+    console.log(`\n\x1b[32m✓ Saved → ${CONFIG_FILE}\x1b[0m`);
+    console.log("\x1b[90m  Restart Claude Code to apply\x1b[0m\n");
   })();
 
 } else {
-  // ── 正常 statusline 模式 ────────────────────────────────
+  // ── Normal statusline mode ─────────────────────────────
   const show = loadConfig();
 
-  // ── ANSI 顏色 ────────────────────────────────────────────
+  // ── ANSI colors ────────────────────────────────────────
   const R = "\x1b[0m";
   const B = "\x1b[1m";
   const fg = (r, g, b) => `\x1b[38;2;${r};${g};${b}m`;
@@ -86,7 +85,7 @@ if (process.argv.includes("--configure")) {
   const GRAY   = fg(150, 150, 150);
   const WHITE  = fg(220, 220, 220);
 
-  // ── Git 分支 ──────────────────────────────────────────────
+  // ── Git branch ─────────────────────────────────────────
   function getGitBranch() {
     try {
       const { execSync } = require("child_process");
@@ -94,21 +93,20 @@ if (process.argv.includes("--configure")) {
         stdio: ["pipe", "pipe", "pipe"], timeout: 2000
       }).toString().trim();
       let dirty = false;
-      try {
-        execSync("git diff --quiet", { stdio: "pipe", timeout: 2000 });
-      } catch { dirty = true; }
+      try { execSync("git diff --quiet", { stdio: "pipe", timeout: 2000 }); }
+      catch { dirty = true; }
       return branch + (dirty ? "*" : "");
     } catch { return null; }
   }
 
-  // ── 進度條 ──────────────────────────────────────────────
+  // ── Progress bar ───────────────────────────────────────
   function progressBar(ratio, width = 10) {
     const filled = Math.round(ratio * width);
     const color  = ratio > 0.85 ? RED : ratio > 0.6 ? YELLOW : GREEN;
     return color + "█".repeat(filled) + GRAY + "░".repeat(width - filled) + R;
   }
 
-  // ── 數字格式化 ──────────────────────────────────────────
+  // ── Number formatters ──────────────────────────────────
   function fmtTokens(n) {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
     if (n >= 1_000)     return Math.round(n / 1_000) + "k";
@@ -122,19 +120,29 @@ if (process.argv.includes("--configure")) {
     return color + str + R;
   }
 
-  // ── 主邏輯 ──────────────────────────────────────────────
+  function fmtCountdown(resets_at) {
+    const secsLeft = Math.max(0, Math.round(resets_at - Date.now() / 1000));
+    const d = Math.floor(secsLeft / 86400);
+    const h = Math.floor((secsLeft % 86400) / 3600);
+    const m = Math.floor((secsLeft % 3600) / 60);
+    if (d > 0) return `${d}d${h}h`;
+    if (h > 0) return `${h}h${m}m`;
+    return `${m}m`;
+  }
+
+  // ── Main logic ─────────────────────────────────────────
   let raw = "";
   process.stdin.on("data", chunk => raw += chunk);
   process.stdin.on("end", () => {
     let data = {};
-    try { data = JSON.parse(raw); } catch { /* 空輸入或無效 JSON */ }
+    try { data = JSON.parse(raw); } catch { /* empty or invalid JSON */ }
 
     const parts = [];
 
-    // 1. 品牌標誌（永遠顯示）
+    // 1. Brand logo (always shown)
     parts.push(PURPLE + B + "◆" + R);
 
-    // 2. 模型名稱
+    // 2. Model name
     if (show.model) {
       const modelObj = data.model || {};
       const model = typeof modelObj === "string"
@@ -143,7 +151,7 @@ if (process.argv.includes("--configure")) {
       if (model) parts.push(CYAN + model + R);
     }
 
-    // 3. Context window 進度條
+    // 3. Context window progress bar
     if (show.contextBar) {
       const ctx     = data.context_window || {};
       const ctxSize = ctx.context_window_size || 0;
@@ -166,7 +174,7 @@ if (process.argv.includes("--configure")) {
       }
     }
 
-    // 4. Token 統計
+    // 4. Token stats
     if (show.tokens) {
       const ctx      = data.context_window || {};
       const totalIn  = ctx.total_input_tokens  || 0;
@@ -179,27 +187,17 @@ if (process.argv.includes("--configure")) {
       }
     }
 
-    // 5. 費用
+    // 5. Cost
     if (show.cost) {
       const costStr = fmtCost((data.cost || {}).total_cost_usd || 0);
       if (costStr) parts.push(costStr);
     }
 
-    // 6. Rate limit 使用量 + 重置倒數
-    function fmtCountdown(resets_at) {
-      const secsLeft = Math.max(0, Math.round(resets_at - Date.now() / 1000));
-      const d = Math.floor(secsLeft / 86400);
-      const h = Math.floor((secsLeft % 86400) / 3600);
-      const m = Math.floor((secsLeft % 3600) / 60);
-      if (d > 0) return `${d}d${h}h`;
-      if (h > 0) return `${h}h${m}m`;
-      return `${m}m`;
-    }
-
+    // 6. Rate limit usage + reset countdown (Pro/Max only)
     const rl = data.rate_limits || {};
     for (const [key, shortLabel, showKey, resetKey] of [
-      ["five_hour", "5h", "rateLimit5h", "rateLimitReset5h"],
-      ["seven_day", "7d", "rateLimit7d", "rateLimitReset7d"],
+      ["five_hour", "5h", "rateLimit5h",  "rateLimitReset5h"],
+      ["seven_day", "7d", "rateLimit7d",  "rateLimitReset7d"],
     ]) {
       const entry = rl[key] || {};
       const pct   = entry.used_percentage;
@@ -209,15 +207,15 @@ if (process.argv.includes("--configure")) {
         const color = pct >= 85 ? RED : pct >= 60 ? YELLOW : GREEN;
         let item = GRAY + `${shortLabel}:` + R + color + `${Math.round(pct)}%` + R;
         if (show[resetKey] && entry.resets_at) {
-          item += GRAY + ` 重置${fmtCountdown(entry.resets_at)}` + R;
+          item += GRAY + ` rst${fmtCountdown(entry.resets_at)}` + R;
         }
         parts.push(item);
       } else if (show[resetKey] && entry.resets_at) {
-        parts.push(GRAY + `${shortLabel} 重置${fmtCountdown(entry.resets_at)}` + R);
+        parts.push(GRAY + `${shortLabel} rst${fmtCountdown(entry.resets_at)}` + R);
       }
     }
 
-    // 7. Git 分支
+    // 7. Git branch
     if (show.git) {
       const git = getGitBranch();
       if (git) {
@@ -226,7 +224,7 @@ if (process.argv.includes("--configure")) {
       }
     }
 
-    // 8. Agent 名稱
+    // 8. Agent name
     if (show.agent) {
       const agent = data.agent || {};
       if (agent.name) parts.push(PURPLE + `[${agent.name}]` + R);
