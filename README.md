@@ -49,6 +49,16 @@ node install.js
 
 安裝完成後**重啟 Claude Code** 即可看到狀態列。
 
+## 已知問題
+
+### `/compact` 後 statusline 不立即更新
+
+執行 `/compact` 壓縮對話後，statusline 仍會顯示壓縮前的 token 使用量。
+
+**原因：** statusline 腳本由 Claude Code 主動呼叫並透過 stdin 傳入資料。`/compact` 是客戶端指令，不會觸發 Claude Code 重新呼叫 statusline，因此畫面不會即時刷新。
+
+**解法：** 送出下一條訊息後，statusline 會自動更新為正確數值。
+
 ## 移除
 
 從 `~/.claude/settings.json` 刪除 `statusLine` 區塊，再重啟 Claude Code。
