@@ -21,8 +21,10 @@ const COMPONENTS = [
   { key: "contextSize", label: "Context 視窗大小", example: "(200k)" },
   { key: "tokens",      label: "Token 統計",       example: "↑15k ↓5k" },
   { key: "cost",       label: "累計費用",         example: "$0.03" },
-  { key: "rateLimit",      label: "Rate limit 使用量",  example: "5h:45%" },
-  { key: "rateLimitReset", label: "Rate limit 重置時間", example: "重置23m" },
+  { key: "rateLimit5h",      label: "Rate limit 5h 使用量",  example: "5h:45%" },
+  { key: "rateLimitReset5h", label: "Rate limit 5h 重置時間", example: "重置23m" },
+  { key: "rateLimit7d",      label: "Rate limit 7d 使用量",  example: "7d:12%" },
+  { key: "rateLimitReset7d", label: "Rate limit 7d 重置時間", example: "重置2d3h" },
   { key: "git",        label: "Git 分支",         example: "⎇ main*" },
   { key: "agent",      label: "Agent 名稱",       example: "[code-reviewer]" },
   { key: "worktree",   label: "Worktree 名稱",    example: "wt:feature-x" },
@@ -184,32 +186,34 @@ if (process.argv.includes("--configure")) {
     }
 
     // 6. Rate limit 使用量 + 重置倒數
+    function fmtCountdown(resets_at) {
+      const secsLeft = Math.max(0, Math.round(resets_at - Date.now() / 1000));
+      const d = Math.floor(secsLeft / 86400);
+      const h = Math.floor((secsLeft % 86400) / 3600);
+      const m = Math.floor((secsLeft % 3600) / 60);
+      if (d > 0) return `${d}d${h}h`;
+      if (h > 0) return `${h}h${m}m`;
+      return `${m}m`;
+    }
+
     const rl = data.rate_limits || {};
-    for (const [key, shortLabel] of [["five_hour", "5h"], ["seven_day", "7d"]]) {
+    for (const [key, shortLabel, showKey, resetKey] of [
+      ["five_hour", "5h", "rateLimit5h", "rateLimitReset5h"],
+      ["seven_day", "7d", "rateLimit7d", "rateLimitReset7d"],
+    ]) {
       const entry = rl[key] || {};
       const pct   = entry.used_percentage;
       if (pct == null) continue;
 
-      if (show.rateLimit) {
+      if (show[showKey]) {
         const color = pct >= 85 ? RED : pct >= 60 ? YELLOW : GREEN;
         let item = GRAY + `${shortLabel}:` + R + color + `${Math.round(pct)}%` + R;
-
-        if (show.rateLimitReset && entry.resets_at) {
-          const secsLeft = Math.max(0, Math.round(entry.resets_at - Date.now() / 1000));
-          const h = Math.floor(secsLeft / 3600);
-          const m = Math.floor((secsLeft % 3600) / 60);
-          const countdown = h > 0 ? `${h}h${m}m` : `${m}m`;
-          item += GRAY + ` 重置${countdown}` + R;
+        if (show[resetKey] && entry.resets_at) {
+          item += GRAY + ` 重置${fmtCountdown(entry.resets_at)}` + R;
         }
-
         parts.push(item);
-      } else if (show.rateLimitReset && entry.resets_at) {
-        // 只顯示重置時間，不顯示百分比
-        const secsLeft = Math.max(0, Math.round(entry.resets_at - Date.now() / 1000));
-        const h = Math.floor(secsLeft / 3600);
-        const m = Math.floor((secsLeft % 3600) / 60);
-        const countdown = h > 0 ? `${h}h${m}m` : `${m}m`;
-        parts.push(GRAY + `${shortLabel} 重置${countdown}` + R);
+      } else if (show[resetKey] && entry.resets_at) {
+        parts.push(GRAY + `${shortLabel} 重置${fmtCountdown(entry.resets_at)}` + R);
       }
     }
 
