@@ -36,7 +36,7 @@ curl -fsSL https://raw.githubusercontent.com/Opeple0627/claude-code-statusline/m
 
 **Windows PowerShell：**
 ```powershell
-node -e "$(irm https://raw.githubusercontent.com/Opeple0627/claude-code-statusline/main/install.js)"
+irm https://raw.githubusercontent.com/Opeple0627/claude-code-statusline/main/install.js -OutFile "$env:TEMP\cc-install.js"; node "$env:TEMP\cc-install.js"
 ```
 
 ### 手動安裝
