@@ -25,9 +25,11 @@ const COMPONENTS = [
   { key: "rateLimitReset5h", label: "Rate limit 5h reset",   example: "rst23m" },
   { key: "rateLimit7d",      label: "Rate limit 7d usage",   example: "7d:12%" },
   { key: "rateLimitReset7d", label: "Rate limit 7d reset",   example: "rst2d3h" },
+  { key: "extraUsageWarn",   label: "Extra usage warning",   example: "5h:EXTRA" },
   { key: "git",              label: "Git branch",            example: "⎇ main*" },
   { key: "agent",            label: "Agent name",            example: "[code-reviewer]" },
   { key: "worktree",         label: "Worktree name",         example: "wt:feature-x" },
+  { key: "parseErrorWarn",   label: "JSON parse error warn", example: "⚠ JSON parse error" },
 ];
 
 function loadConfig() {
@@ -93,8 +95,25 @@ if (process.argv.includes("--configure")) {
         stdio: ["pipe", "pipe", "pipe"], timeout: 2000
       }).toString().trim();
       let dirty = false;
-      try { execSync("git diff --quiet", { stdio: "pipe", timeout: 2000 }); }
-      catch { dirty = true; }
+      try {
+        // Check unstaged changes in tracked files
+        execSync("git diff --quiet", { stdio: "pipe", timeout: 2000 });
+      } catch { dirty = true; }
+      if (!dirty) {
+        try {
+          // Check staged but uncommitted changes
+          execSync("git diff --cached --quiet", { stdio: "pipe", timeout: 2000 });
+        } catch { dirty = true; }
+      }
+      if (!dirty) {
+        try {
+          // Check untracked files
+          const untracked = execSync("git ls-files --others --exclude-standard", {
+            stdio: ["pipe", "pipe", "pipe"], timeout: 2000
+          }).toString().trim();
+          if (untracked.length > 0) dirty = true;
+        } catch { /* ignore */ }
+      }
       return branch + (dirty ? "*" : "");
     } catch { return null; }
   }
@@ -135,12 +154,18 @@ if (process.argv.includes("--configure")) {
   process.stdin.on("data", chunk => raw += chunk);
   process.stdin.on("end", () => {
     let data = {};
-    try { data = JSON.parse(raw); } catch { /* empty or invalid JSON */ }
+    let parseError = false;
+    try { data = JSON.parse(raw); } catch { parseError = raw.trim().length > 0; }
 
     const parts = [];
 
     // 1. Brand logo (always shown)
     parts.push(PURPLE + B + "◆" + R);
+
+    // Show warning if stdin contained data but JSON parsing failed
+    if (parseError && show.parseErrorWarn !== false) {
+      parts.push(RED + "⚠ JSON parse error" + R);
+    }
 
     // 2. Model name
     if (show.model) {
@@ -151,11 +176,12 @@ if (process.argv.includes("--configure")) {
       if (model) parts.push(CYAN + model + R);
     }
 
-    // 3. Context window progress bar
+    // 3. Context window progress bar + context size
+    const ctx     = data.context_window || {};
+    const ctxSize = ctx.context_window_size || 0;
+
     if (show.contextBar) {
-      const ctx     = data.context_window || {};
-      const ctxSize = ctx.context_window_size || 0;
-      let ctxPct    = ctx.used_percentage ?? null;
+      let ctxPct = ctx.used_percentage ?? null;
 
       if (ctxPct === null && ctxSize) {
         const cur  = ctx.current_usage || {};
@@ -172,6 +198,9 @@ if (process.argv.includes("--configure")) {
         const sizeStr  = (show.contextSize && ctxSize) ? ` ${GRAY}(${fmtTokens(ctxSize)})${R}` : "";
         parts.push(`${bar} ${pctColor}${Math.round(ctxPct)}%${R}${sizeStr}`);
       }
+    } else if (show.contextSize && ctxSize) {
+      // Show context size independently even when contextBar is off
+      parts.push(`${GRAY}ctx:${fmtTokens(ctxSize)}${R}`);
     }
 
     // 4. Token stats
@@ -204,8 +233,12 @@ if (process.argv.includes("--configure")) {
       if (pct == null) continue;
 
       if (show[showKey]) {
-        const color = pct >= 85 ? RED : pct >= 60 ? YELLOW : GREEN;
-        let item = GRAY + `${shortLabel}:` + R + color + `${Math.round(pct)}%` + R;
+        const isExtra = pct >= 100 && show.extraUsageWarn !== false;
+        const color = pct >= 100 ? RED : pct >= 85 ? RED : pct >= 60 ? YELLOW : GREEN;
+        const label = isExtra
+          ? RED + B + `${shortLabel}:EXTRA` + R
+          : GRAY + `${shortLabel}:` + R + color + `${Math.round(pct)}%` + R;
+        let item = label;
         if (show[resetKey] && entry.resets_at) {
           item += GRAY + ` rst${fmtCountdown(entry.resets_at)}` + R;
         }

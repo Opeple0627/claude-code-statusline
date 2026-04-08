@@ -39,17 +39,26 @@ const COMPONENTS = [
   { key: "rateLimitReset5h", label: "Rate limit 5h reset",   example: "rst23m" },
   { key: "rateLimit7d",      label: "Rate limit 7d usage",   example: "7d:12%" },
   { key: "rateLimitReset7d", label: "Rate limit 7d reset",   example: "rst2d3h" },
+  { key: "extraUsageWarn",   label: "Extra usage warning",   example: "5h:EXTRA" },
   { key: "git",              label: "Git branch",            example: "⎇ main*" },
   { key: "agent",            label: "Agent name",            example: "[code-reviewer]" },
   { key: "worktree",         label: "Worktree name",         example: "wt:feature-x" },
+  { key: "parseErrorWarn",   label: "JSON parse error warn", example: "⚠ JSON parse error" },
 ];
 
-// ── Utility: HTTP fetch with redirect support ─────────────
-function fetch(url) {
+// ── Utility: HTTP fetch with redirect + error handling ────
+function fetch(url, maxRedirects = 5) {
   return new Promise((resolve, reject) => {
+    if (maxRedirects <= 0) {
+      return reject(new Error("Too many redirects"));
+    }
     https.get(url, res => {
       if (res.statusCode === 301 || res.statusCode === 302) {
-        return fetch(res.headers.location).then(resolve).catch(reject);
+        return fetch(res.headers.location, maxRedirects - 1).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) {
+        res.resume(); // drain response to free memory
+        return reject(new Error(`HTTP ${res.statusCode} for ${url}`));
       }
       let data = "";
       res.on("data", c => data += c);
@@ -71,9 +80,11 @@ function updateSettings(nodePath) {
 
   const nodeCmd = nodePath.replace(/\\/g, "/");
   const destFwd = DEST_FILE.replace(/\\/g, "/");
+  const quotedNode = nodeCmd.includes(" ") ? `"${nodeCmd}"` : nodeCmd;
+  const quotedDest = destFwd.includes(" ") ? `"${destFwd}"` : destFwd;
   settings.statusLine = {
     type: "command",
-    command: `${nodeCmd.includes(" ") ? `"${nodeCmd}"` : nodeCmd} ${destFwd}`,
+    command: `${quotedNode} ${quotedDest}`,
   };
 
   fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2), "utf8");
